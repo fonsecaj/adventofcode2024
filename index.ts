@@ -14,10 +14,43 @@ const [columnLeft, columnRight] = values
     },
     [[], []]
   )
-  .map(column => column.sort());
+  .map(column => column.sort().map(Number));
 
 const totalDistance = columnLeft.reduce((total, leftValue, i) => {
-  return total + Math.abs(Number(leftValue) - Number(columnRight[i]));
+  return total + Math.abs(leftValue - columnRight[i]);
 }, 0);
 
 console.log(totalDistance); // 1319616
+
+const similarityScore = columnLeft.reduce((total, leftValue, i) => {
+  let cursor = i;
+  let multiplicator = 0;
+  const firstObservedValue = columnRight[i];
+
+  if (firstObservedValue > leftValue) {
+    while(columnRight[cursor] !== undefined && columnRight[cursor] >= leftValue) {
+      if (columnRight[cursor] === leftValue) {
+        multiplicator++;
+      }
+      cursor--;
+    }
+  } else {
+    if (firstObservedValue === leftValue) {
+      // Adjust the cursor to the lowest index of the same value
+      while(columnRight[cursor] !== undefined && columnRight[cursor] === leftValue) {
+        cursor--;
+      }
+    }
+
+    while(columnRight[cursor] !== undefined && columnRight[cursor] <= leftValue) {
+      if (columnRight[cursor] === leftValue) {
+        multiplicator++;
+      }
+      cursor++;
+    }
+  }
+
+  return total + (leftValue * multiplicator);
+}, 0);
+
+console.log(similarityScore); // 27267728
