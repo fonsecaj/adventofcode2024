@@ -1,45 +1,28 @@
 const file = Bun.file("puzzle-input.txt");
 const puzzleInput = await file.text();
 
-const charTable = puzzleInput.split("\n");
+const lines = puzzleInput.split("\n");
 
-const xmasChunk = 'MAS';
+const rules = lines.filter(line => line.includes("|")).map(rule => rule.split("|").map(Number)) as [number, number][];
 
-function isXmas(wordBuilder: () => [string, string, string]) {
-  try {
-    const word = wordBuilder().join("");
+const pageUpdates = lines.filter(line => line.length && !line.includes("|")).map(rule => rule.split(",").map(Number));
 
-    return word === xmasChunk || word === xmasChunk.split("").reverse().join("");
-  } catch (e) {
-    return false;
-  }
+function includes<T>(array: T[], ...values: T[]): boolean {
+  return values.every(value => array.includes(value));
 }
 
-function checkXmasDiagonally(column: number, row: number) {
-  return isXmas(() => ([
-    charTable[row - 1][column - 1],
-    charTable[row][column],
-    charTable[row + 1][column + 1]
-  ]));
+function isBefore<T>(array: T[], a: T, b: T): boolean {
+  return array.indexOf(a) < array.indexOf(b);
 }
 
-function checkXmasDiagonallyReverse(column: number, row: number) {
-  return isXmas(() => ([
-    charTable[row + 1][column - 1],
-    charTable[row][column],
-    charTable[row - 1][column + 1]
-  ]));
+function getMiddleValue<T>(array: T[]): T {
+  return array[Math.floor(array.length / 2)];
 }
 
-const xmasCount = charTable.reduce((count, row, rowIndex) => {
-  let matches = 0;
-  for (let columnIndex = 0; columnIndex < row.length; columnIndex++) {
-    if (row[columnIndex] === xmasChunk[1] && checkXmasDiagonally(columnIndex, rowIndex) && checkXmasDiagonallyReverse(columnIndex, rowIndex)) {
-      matches++;
-    }
-  }
+const sum = pageUpdates.reduce((sum, pageNumber) => {
+  const isCorrectlyOrdered = rules.every(([a, b]) => includes(pageNumber, a, b) ? isBefore(pageNumber, a, b) : true);
 
-  return count + matches;
+  return isCorrectlyOrdered ? sum + getMiddleValue(pageNumber) : sum;
 }, 0);
 
-console.log(xmasCount); // 2005
+console.log(sum); // 5248
