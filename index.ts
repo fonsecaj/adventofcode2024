@@ -19,10 +19,33 @@ function getMiddleValue<T>(array: T[]): T {
   return array[Math.floor(array.length / 2)];
 }
 
-const sum = pageUpdates.reduce((sum, pageNumber) => {
-  const isCorrectlyOrdered = rules.every(([a, b]) => includes(pageNumber, a, b) ? isBefore(pageNumber, a, b) : true);
+function isCorrectlyOrdered(pageNumbers: number[]): boolean {
+  return rules.every(([a, b]) => includes(pageNumbers, a, b) ? isBefore(pageNumbers, a, b) : true);
+}
 
-  return isCorrectlyOrdered ? sum + getMiddleValue(pageNumber) : sum;
+const sum = pageUpdates.reduce((sum, pageNumbers) => {
+
+  if (isCorrectlyOrdered(pageNumbers)) return sum;
+
+  let pageNumbersToReorder = [...pageNumbers];
+
+  while (isCorrectlyOrdered(pageNumbersToReorder) === false) {
+    const invalidRule = rules.find(([a, b]) => includes(pageNumbersToReorder, a, b) && isBefore(pageNumbersToReorder, b, a));
+
+    if (!invalidRule) break;
+
+    const reorderedPageNumbers = [...pageNumbersToReorder];
+    const [a, b] = invalidRule;
+    const aIndex = pageNumbersToReorder.indexOf(a);
+    const bIndex = pageNumbersToReorder.indexOf(b);
+
+    reorderedPageNumbers[aIndex] = b;
+    reorderedPageNumbers[bIndex] = a;
+
+    pageNumbersToReorder = reorderedPageNumbers;
+  }
+
+  return sum + getMiddleValue(pageNumbersToReorder);
 }, 0);
 
-console.log(sum); // 5248
+console.log(sum); // 4507
