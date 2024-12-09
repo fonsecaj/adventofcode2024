@@ -1,51 +1,128 @@
 const file = Bun.file("puzzle-input.txt");
 const puzzleInput = await file.text();
 
-const lines = puzzleInput.split("\n");
-
-const rules = lines.filter(line => line.includes("|")).map(rule => rule.split("|").map(Number)) as [number, number][];
-
-const pageUpdates = lines.filter(line => line.length && !line.includes("|")).map(rule => rule.split(",").map(Number));
-
-function includes<T>(array: T[], ...values: T[]): boolean {
-  return values.every(value => array.includes(value));
+enum TileType {
+  Blank = ".",
+  VisitedByGuard = "X",
+  Obstacle = "#",
+  GuardLookingUp = "^",
+  GuardLookingDown = "v",
+  GuardLookingLeft = "<",
+  GuardLookingRight = ">",
 }
 
-function isBefore<T>(array: T[], a: T, b: T): boolean {
-  return array.indexOf(a) < array.indexOf(b);
+const GUARD_TILE_TYPES = [
+  TileType.GuardLookingDown,
+  TileType.GuardLookingLeft,
+  TileType.GuardLookingRight,
+  TileType.GuardLookingUp,
+] as const;
+
+type Tile = {
+  type: TileType;
+  x: number;
+  y: number;
 }
 
-function getMiddleValue<T>(array: T[]): T {
-  return array[Math.floor(array.length / 2)];
+type TileRow = TileType[];
+
+type TileMap = TileRow[];
+
+type GuardTile = Tile & {
+  type: typeof GUARD_TILE_TYPES[number];
 }
 
-function isCorrectlyOrdered(pageNumbers: number[]): boolean {
-  return rules.every(([a, b]) => includes(pageNumbers, a, b) ? isBefore(pageNumbers, a, b) : true);
-}
+const tileMapRows = puzzleInput.split("\n").map(row => row.split("")) as TileMap;
+const tileRowCount = tileMapRows.length;
+const tileByRowCount = tileMapRows[0].length;
 
-const sum = pageUpdates.reduce((sum, pageNumbers) => {
-
-  if (isCorrectlyOrdered(pageNumbers)) return sum;
-
-  let pageNumbersToReorder = [...pageNumbers];
-
-  while (isCorrectlyOrdered(pageNumbersToReorder) === false) {
-    const invalidRule = rules.find(([a, b]) => includes(pageNumbersToReorder, a, b) && isBefore(pageNumbersToReorder, b, a));
-
-    if (!invalidRule) break;
-
-    const reorderedPageNumbers = [...pageNumbersToReorder];
-    const [a, b] = invalidRule;
-    const aIndex = pageNumbersToReorder.indexOf(a);
-    const bIndex = pageNumbersToReorder.indexOf(b);
-
-    reorderedPageNumbers[aIndex] = b;
-    reorderedPageNumbers[bIndex] = a;
-
-    pageNumbersToReorder = reorderedPageNumbers;
+function getTile(map: TileMap, x: number, y: number): Tile | null {
+  if (x < 0 || y < 0 || x >= tileByRowCount || y >= tileRowCount) {
+    return null;
   }
 
-  return sum + getMiddleValue(pageNumbersToReorder);
-}, 0);
+  return {
+    type: map[y][x],
+    x,
+    y,
+  };
+}
 
-console.log(sum); // 4507
+function isGuardTile(tile: Tile | null): tile is GuardTile {
+  if (tile === null) {
+    return false;
+  }
+
+  return ([...GUARD_TILE_TYPES] as string[]).includes(tile.type);
+}
+
+function findGuardTile(map: TileMap): GuardTile {
+  for (let y = 0; y < tileRowCount; y++) {
+    for (let x = 0; x < tileByRowCount; x++) {
+      const tile = getTile(map, x, y);
+
+      if (isGuardTile(tile)) {
+        return tile;
+      }
+    }
+  }
+
+  throw new Error("Guard not found");
+}
+
+function getNextGuardTileType(type: GuardTile["type"]): GuardTile["type"] {
+  switch (type) {
+    case TileType.GuardLookingDown:
+      return TileType.GuardLookingLeft;
+    case TileType.GuardLookingLeft:
+      return TileType.GuardLookingUp;
+    case TileType.GuardLookingRight:
+      return TileType.GuardLookingDown;
+    case TileType.GuardLookingUp:
+      return TileType.GuardLookingRight;
+  }
+}
+
+function moveGuard(map: TileMap, guardTile: GuardTile = findGuardTile(map)): TileMap {
+  const tileMap = JSON.parse(JSON.stringify(map)) as TileMap;
+  let nextTileToVisit: Tile | null = null;
+
+  switch (guardTile.type) {
+    case TileType.GuardLookingDown:
+      nextTileToVisit = getTile(tileMap, guardTile.x, guardTile.y + 1);
+      break;
+    case TileType.GuardLookingLeft:
+      nextTileToVisit = getTile(tileMap, guardTile.x - 1, guardTile.y);
+      break;
+    case TileType.GuardLookingRight:
+      nextTileToVisit = getTile(tileMap, guardTile.x + 1, guardTile.y);
+      break;
+    case TileType.GuardLookingUp:
+      nextTileToVisit = getTile(tileMap, guardTile.x, guardTile.y - 1);
+      break;
+  }
+
+  switch (nextTileToVisit?.type) {
+    case TileType.Blank:
+    case TileType.VisitedByGuard:
+      tileMap[guardTile.y][guardTile.x] = TileType.VisitedByGuard;
+      tileMap[nextTileToVisit.y][nextTileToVisit.x] = guardTile.type;
+
+      return moveGuard(tileMap, { type: guardTile.type, x: nextTileToVisit.x, y: nextTileToVisit.y });
+    case TileType.Obstacle:
+      const nextGuardTileType = getNextGuardTileType(guardTile.type);
+      tileMap[guardTile.y][guardTile.x] = nextGuardTileType;
+
+      return moveGuard(tileMap, { type: nextGuardTileType, x: guardTile.x, y: guardTile.y });
+    default:
+      tileMap[guardTile.y][guardTile.x] = TileType.VisitedByGuard;
+      
+      return tileMap;
+  }
+}
+
+const tileVisitedByGuardCount = moveGuard(tileMapRows).flat().filter(tile => tile === TileType.VisitedByGuard).length;
+
+console.log(tileVisitedByGuardCount); // 4883
+
+
