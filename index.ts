@@ -1,83 +1,66 @@
 const file = Bun.file("puzzle-input.txt");
 const puzzleInput = await file.text();
-const antennasMap = puzzleInput.split('\n').map(row => row.split(''));
-const antennasMapRowCount = antennasMap.length;
-const antennasMapColCount = antennasMap[0].length;
-const antinodeMap = puzzleInput.replace(/[0-9a-zA-Z]/g, '.').split('\n').map(row => row.split(''));
 
-type AntennaPosition = {
-  x: number;
-  y: number;
-  value: string;
+type FileBlock = number | null;
+
+function createFileSystem(diskMap: string): FileBlock[] {
+  const blocks: FileBlock[] = [];
+  let isFileSection = true;
+  let fileId = 0;
+    
+  const sections = diskMap.trim().split('').map(Number);
+  
+  for (const sectionSize of sections) {
+    if (isFileSection) {
+      blocks.push(...Array(sectionSize).fill(fileId));
+      fileId++;
+    } else {
+      blocks.push(...Array(sectionSize).fill(null));
+    }
+    isFileSection = !isFileSection;
+  }
+  
+  return blocks;
 }
 
-function writeAntinodes(antenna: string) {
-  console.log(`Writing antinodes for ${antenna}...\n`);
+function switchPositions(fileSystem: FileBlock[], positionA: number, positionB: number): void {
+  const temp = fileSystem[positionA];
+  fileSystem[positionA] = fileSystem[positionB];
+  fileSystem[positionB] = temp;
+}
 
-  if (antenna.length > 1 || antenna === '.') return;
-
-  const antennaPositions = antennasMap.reduce((acc, row, y) => {
-    const antennaPosition = row.map((value, x) => {
-      if (value === antenna) {
-        return { x, y, value };
-      }
-    }).filter((value): value is AntennaPosition => value !== undefined);
-
-    return [...acc, ...antennaPosition];
-  }, [] as AntennaPosition[]);
-
-  for (let i = 0; i < antennaPositions.length; i++) {
-    if (antennaPositions.length === 1) continue;
-
-    const { x: ax1, y: ay1 } = antennaPositions[i];
-
-    antinodeMap[ay1][ax1] = '#';
+function defragmentFileSystem(fileSystem: FileBlock[]): FileBlock[] {
+  const defragmented = [...fileSystem];
+  
+  let firstFreePosition = defragmented.findIndex(block => block === null);
+  let currentPosition = defragmented.length - 1;
+  
+  while (defragmented[currentPosition] === null) {
+    currentPosition--;
+  }
+  
+  while (currentPosition > firstFreePosition) {
+    switchPositions(defragmented, currentPosition, firstFreePosition);
+    firstFreePosition = defragmented.indexOf(null);
     
-    for (let j = i + 1; j < antennaPositions.length; j++) {
-      const { x: ax2, y: ay2 } = antennaPositions[j];
-      const axDiff = ax2 - ax1;
-      const ayDiff = ay2 - ay1;
-
-      let nx1 = ax1 - axDiff;
-      let ny1 = ay1 - ayDiff;
-
-      while (nx1 >= 0 && nx1 < antennasMapColCount && ny1 >= 0 && ny1 < antennasMapRowCount) {
-        antinodeMap[ny1][nx1] = '#';
-        nx1 -= axDiff;
-        ny1 -= ayDiff;
-      }
-
-      let nx2 = ax2 + axDiff;
-      let ny2 = ay2 + ayDiff;
-
-      while (nx2 >= 0 && nx2 < antennasMapColCount && ny2 >= 0 && ny2 < antennasMapRowCount) {
-        antinodeMap[ny2][nx2] = '#';
-        nx2 += axDiff;
-        ny2 += ayDiff;
-      }
+    while (currentPosition > firstFreePosition && defragmented[currentPosition] === null) {
+      currentPosition--;
     }
   }
+  
+  return defragmented;
 }
 
-const scannedAntennas = new Set<string>();
-
-for (let y = 0; y < antennasMapRowCount; y++) {
-  for (let x = 0; x < antennasMapColCount; x++) {
-    const antennaOrBlank = antennasMap[y][x];
-
-    if (antennaOrBlank === '.' || scannedAntennas.has(antennaOrBlank)) continue;
-    
-    writeAntinodes(antennaOrBlank);
-    scannedAntennas.add(antennaOrBlank);
-  }
+function calculateChecksum(fileSystem: FileBlock[]): number {
+  return fileSystem.reduce((sum, block, position) => {
+    if (block !== null) {
+      return sum! + (position * block);
+    }
+    return sum ?? 0;
+  }, 0) as number;
 }
 
-console.log(antennasMap.map(row => row.join('')).join('\n'));
-console.log('\n')
-console.log(antinodeMap.map(row => row.join('')).join('\n'));
+const fileSystem = createFileSystem(puzzleInput);
+const defragmentedSystem = defragmentFileSystem(fileSystem);
 
-const antinodeCount = antinodeMap.reduce((acc, row) => {
-  return acc + row.filter(value => value === '#').length;
-}, 0);
-
-console.log(`\nAntinode count: ${antinodeCount}`); // 951
+console.log(calculateChecksum(defragmentedSystem)); // 6337367222422
