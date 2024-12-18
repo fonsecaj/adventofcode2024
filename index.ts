@@ -27,25 +27,33 @@ function writeAntinodes(antenna: string) {
   }, [] as AntennaPosition[]);
 
   for (let i = 0; i < antennaPositions.length; i++) {
+    if (antennaPositions.length === 1) continue;
+
     const { x: ax1, y: ay1 } = antennaPositions[i];
+
+    antinodeMap[ay1][ax1] = '#';
     
     for (let j = i + 1; j < antennaPositions.length; j++) {
       const { x: ax2, y: ay2 } = antennaPositions[j];
       const axDiff = ax2 - ax1;
       const ayDiff = ay2 - ay1;
 
-      const nx1 = ax1 + (axDiff * -1);
-      const ny1 = ay1 + (ayDiff * -1);
+      let nx1 = ax1 - axDiff;
+      let ny1 = ay1 - ayDiff;
 
-      if (nx1 >= 0 && nx1 < antennasMapColCount && ny1 >= 0 && ny1 < antennasMapRowCount) {
+      while (nx1 >= 0 && nx1 < antennasMapColCount && ny1 >= 0 && ny1 < antennasMapRowCount) {
         antinodeMap[ny1][nx1] = '#';
+        nx1 -= axDiff;
+        ny1 -= ayDiff;
       }
 
-      const nx2 = ax2 - (axDiff * -1);
-      const ny2 = ay2 - (ayDiff * -1);
+      let nx2 = ax2 + axDiff;
+      let ny2 = ay2 + ayDiff;
 
-      if (nx2 >= 0 && nx2 < antennasMapColCount && ny2 >= 0 && ny2 < antennasMapRowCount) {
+      while (nx2 >= 0 && nx2 < antennasMapColCount && ny2 >= 0 && ny2 < antennasMapRowCount) {
         antinodeMap[ny2][nx2] = '#';
+        nx2 += axDiff;
+        ny2 += ayDiff;
       }
     }
   }
@@ -72,4 +80,4 @@ const antinodeCount = antinodeMap.reduce((acc, row) => {
   return acc + row.filter(value => value === '#').length;
 }, 0);
 
-console.log(`\nAntinode count: ${antinodeCount}`); // 254
+console.log(`\nAntinode count: ${antinodeCount}`); // 951
