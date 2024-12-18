@@ -6,7 +6,7 @@ type TrailMap = TrailLevel[][];
 
 const trailMap = puzzleInput.split("\n").map((row) => row.trim().split("").map(Number)) as TrailMap;
 
-const trailUniquePaths = new Set<string>();
+let trailScore = 0;
 
 console.log('\n\nStarting trail...\n');
 
@@ -28,11 +28,8 @@ function trail(path: [number, number][], expectedLevel: number): void {
   }
   
   if (expectedLevel === 9) {
-    const sizeBeforeAdd = trailUniquePaths.size;
-    trailUniquePaths.add(`${path[0].join(",")}:${x},${y}`);
-    if (trailUniquePaths.size !== sizeBeforeAdd) {
-      console.log(path.join(" ➡️ "), '🥾\n');
-    }
+    console.log(path.join(" ➡️ "), '🥾\n');
+    trailScore++;
     return;
   }
 
@@ -43,4 +40,4 @@ function trail(path: [number, number][], expectedLevel: number): void {
 }
 
 
-console.log(trailUniquePaths.size); // 512
+console.log(trailScore); // 1045
