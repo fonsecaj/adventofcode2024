@@ -11,12 +11,12 @@ enum TileType {
   GuardLookingRight = ">",
 }
 
-const GUARD_TILE_TYPES = [
+const GUARD_TILE_TYPES = new Set([
   TileType.GuardLookingDown,
   TileType.GuardLookingLeft,
   TileType.GuardLookingRight,
   TileType.GuardLookingUp,
-] as const;
+]);
 
 type Tile = {
   type: TileType;
@@ -29,8 +29,10 @@ type TileRow = TileType[];
 type TileMap = TileRow[];
 
 type GuardTile = Tile & {
-  type: typeof GUARD_TILE_TYPES[number];
+  type: TileType.GuardLookingDown | TileType.GuardLookingLeft | TileType.GuardLookingRight | TileType.GuardLookingUp;
 }
+
+type StateKey = `${number},${number},${string}`;
 
 const tileMapRows = puzzleInput.split("\n").map(row => row.split("")) as TileMap;
 const tileRowCount = tileMapRows.length;
@@ -49,11 +51,7 @@ function getTile(map: TileMap, x: number, y: number): Tile | null {
 }
 
 function isGuardTile(tile: Tile | null): tile is GuardTile {
-  if (tile === null) {
-    return false;
-  }
-
-  return ([...GUARD_TILE_TYPES] as string[]).includes(tile.type);
+  return tile !== null && GUARD_TILE_TYPES.has(tile.type);
 }
 
 function findGuardTile(map: TileMap): GuardTile {
@@ -83,46 +81,53 @@ function getNextGuardTileType(type: GuardTile["type"]): GuardTile["type"] {
   }
 }
 
-function moveGuard(map: TileMap, guardTile: GuardTile = findGuardTile(map)): TileMap {
-  const tileMap = JSON.parse(JSON.stringify(map)) as TileMap;
-  let nextTileToVisit: Tile | null = null;
+function moveGuard(map: TileMap): boolean {
+  const visited = new Set<StateKey>();
+  let currentGuardTile: GuardTile = findGuardTile(map);
 
-  switch (guardTile.type) {
-    case TileType.GuardLookingDown:
-      nextTileToVisit = getTile(tileMap, guardTile.x, guardTile.y + 1);
-      break;
-    case TileType.GuardLookingLeft:
-      nextTileToVisit = getTile(tileMap, guardTile.x - 1, guardTile.y);
-      break;
-    case TileType.GuardLookingRight:
-      nextTileToVisit = getTile(tileMap, guardTile.x + 1, guardTile.y);
-      break;
-    case TileType.GuardLookingUp:
-      nextTileToVisit = getTile(tileMap, guardTile.x, guardTile.y - 1);
-      break;
-  }
+  while (true) {
+    const stateKey: StateKey = `${currentGuardTile.x},${currentGuardTile.y},${currentGuardTile.type}`;
+    if (visited.has(stateKey)) {
+      return true; // Loop detected
+    }
+    visited.add(stateKey);
 
-  switch (nextTileToVisit?.type) {
-    case TileType.Blank:
-    case TileType.VisitedByGuard:
-      tileMap[guardTile.y][guardTile.x] = TileType.VisitedByGuard;
-      tileMap[nextTileToVisit.y][nextTileToVisit.x] = guardTile.type;
+    let nextX = currentGuardTile.x;
+    let nextY = currentGuardTile.y;
 
-      return moveGuard(tileMap, { type: guardTile.type, x: nextTileToVisit.x, y: nextTileToVisit.y });
-    case TileType.Obstacle:
-      const nextGuardTileType = getNextGuardTileType(guardTile.type);
-      tileMap[guardTile.y][guardTile.x] = nextGuardTileType;
+    switch (currentGuardTile.type) {
+      case TileType.GuardLookingDown: nextY++; break;
+      case TileType.GuardLookingLeft: nextX--; break;
+      case TileType.GuardLookingRight: nextX++; break;
+      case TileType.GuardLookingUp: nextY--; break;
+    }
 
-      return moveGuard(tileMap, { type: nextGuardTileType, x: guardTile.x, y: guardTile.y });
-    default:
-      tileMap[guardTile.y][guardTile.x] = TileType.VisitedByGuard;
-      
-      return tileMap;
+    if (nextX < 0 || nextY < 0 || nextX >= tileByRowCount || nextY >= tileRowCount) {
+      return false; // Guard is out of bounds
+    }
+
+    const nextTile = map[nextY][nextX];
+    if (nextTile === TileType.Obstacle) {
+      currentGuardTile.type = getNextGuardTileType(currentGuardTile.type);
+    } else {
+      currentGuardTile.x = nextX;
+      currentGuardTile.y = nextY;
+    }
   }
 }
 
-const tileVisitedByGuardCount = moveGuard(tileMapRows).flat().filter(tile => tile === TileType.VisitedByGuard).length;
+let infiniteLoopCount = 0;
 
-console.log(tileVisitedByGuardCount); // 4883
+for (let y = 0; y < tileRowCount; y++) {
+  for (let x = 0; x < tileByRowCount; x++) {
+    if (tileMapRows[y][x] === TileType.Blank) {
+      const testMap = JSON.parse(JSON.stringify(tileMapRows));
+      testMap[y][x] = TileType.Obstacle;
+      if (moveGuard(testMap)) {
+        infiniteLoopCount++;
+      }
+    }
+  }
+}
 
-
+console.log(infiniteLoopCount); // 1655
