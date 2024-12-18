@@ -32,19 +32,90 @@ function switchPositions(fileSystem: FileBlock[], positionA: number, positionB: 
 function defragmentFileSystem(fileSystem: FileBlock[]): FileBlock[] {
   const defragmented = [...fileSystem];
   
-  let firstFreePosition = defragmented.findIndex(block => block === null);
-  let currentPosition = defragmented.length - 1;
-  
-  while (defragmented[currentPosition] === null) {
-    currentPosition--;
+  let firstFreePositionStart = defragmented.findIndex(block => block === null);
+  let firstFreePositionEnd = firstFreePositionStart;
+
+  while (defragmented[firstFreePositionEnd] === null) {
+    firstFreePositionEnd++;
   }
+
+  let currentPositionEnd = defragmented.length - 1;
   
-  while (currentPosition > firstFreePosition) {
-    switchPositions(defragmented, currentPosition, firstFreePosition);
-    firstFreePosition = defragmented.indexOf(null);
+  while (defragmented[currentPositionEnd] === null) {
+    currentPositionEnd--;
+  }
+
+  let currentPositionStart = currentPositionEnd;
+
+  while (defragmented[currentPositionStart - 1] === defragmented[currentPositionEnd]) {
+    currentPositionStart--;
+  }
+
+  let currentFileId = defragmented[currentPositionStart];
+  
+  while (currentFileId) {
+    let switched = false;
+
+    while(firstFreePositionStart < currentPositionStart && !switched) {
+      if (firstFreePositionEnd - firstFreePositionStart >= currentPositionEnd - currentPositionStart) {
+        for (let i = 0; i <= currentPositionEnd - currentPositionStart; i++) {
+          switchPositions(defragmented, currentPositionStart + i, firstFreePositionStart + i);
+        }
+  
+        firstFreePositionStart = defragmented.findIndex(block => block === null);
+        firstFreePositionEnd = firstFreePositionStart;
     
-    while (currentPosition > firstFreePosition && defragmented[currentPosition] === null) {
-      currentPosition--;
+        while (defragmented[firstFreePositionEnd] === null) {
+          firstFreePositionEnd++;
+        }
+  
+        currentPositionEnd = defragmented.length - 1;
+  
+        while (defragmented[currentPositionEnd] === null) {
+          currentPositionEnd--;
+        }
+  
+        currentPositionStart = currentPositionEnd;
+  
+        while (defragmented[currentPositionStart - 1] === defragmented[currentPositionEnd]) {
+          currentPositionStart--;
+        }
+  
+        switched = true;
+      } else {
+        firstFreePositionStart = firstFreePositionEnd + 1;
+
+        while (defragmented[firstFreePositionStart] !== null && firstFreePositionStart < defragmented.length) {
+          firstFreePositionStart++;
+        }
+
+        firstFreePositionEnd = firstFreePositionStart;
+
+        while (defragmented[firstFreePositionEnd + 1] === null) {
+          firstFreePositionEnd++;
+        }
+      }
+    }
+
+    firstFreePositionStart = defragmented.findIndex(block => block === null);
+    firstFreePositionEnd = firstFreePositionStart;
+
+    while (defragmented[firstFreePositionEnd + 1] === null) {
+      firstFreePositionEnd++;
+    }
+
+    currentFileId = currentFileId ? currentFileId - 1 : 0;
+
+    currentPositionEnd = defragmented.length - 1;
+
+    while (defragmented[currentPositionEnd] !== currentFileId) {
+      currentPositionEnd--;
+    }
+
+    currentPositionStart = currentPositionEnd;
+
+    while (defragmented[currentPositionStart - 1] === currentFileId) {
+      currentPositionStart--;
     }
   }
   
@@ -63,4 +134,4 @@ function calculateChecksum(fileSystem: FileBlock[]): number {
 const fileSystem = createFileSystem(puzzleInput);
 const defragmentedSystem = defragmentFileSystem(fileSystem);
 
-console.log(calculateChecksum(defragmentedSystem)); // 6337367222422
+console.log(calculateChecksum(defragmentedSystem)); // 6361380647183
