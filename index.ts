@@ -1,43 +1,42 @@
 const file = Bun.file("puzzle-input.txt");
 const puzzleInput = await file.text();
 
-type TrailLevel = 0|1|2|3|4|5|6|7|8|9;
-type TrailMap = TrailLevel[][];
+let stoneMarks: (number | number[])[] = puzzleInput.split(' ').map(Number);
 
-const trailMap = puzzleInput.split("\n").map((row) => row.trim().split("").map(Number)) as TrailMap;
+function changeStone(stoneIndex: number) {
+  const stoneMark = stoneMarks[stoneIndex] as number;
 
-let trailScore = 0;
+  switch (true) {
+    case stoneMark === 0:
+      stoneMarks[stoneIndex] = 1;
+      break;
 
-console.log('\n\nStarting trail...\n');
+    case stoneMark.toString().length % 2 === 0:
+      let [firstHalf, secondHalf] = [stoneMark.toString().substring(0, stoneMark.toString().length / 2), stoneMark.toString().substring(stoneMark.toString().length / 2)];
 
-for (let y = 0; y < trailMap.length; y++) {
-  for (let x = 0; x < trailMap[y].length; x++) {
-    trail([[x, y]], 0);
-  }
-}
+      while (secondHalf[0] === '0') {
+        secondHalf = secondHalf.substring(1);
+      }
 
-function trail(path: [number, number][], expectedLevel: number): void {
-  const [x, y] = path[path.length - 1];
-
-  try {
-    if (trailMap[y][x] !== expectedLevel) {
-      return;
-    } 
-  } catch (e) {
-    return;
-  }
+      stoneMarks[stoneIndex] = [Number(firstHalf), Number(secondHalf)];
+      break;
   
-  if (expectedLevel === 9) {
-    console.log(path.join(" ➡️ "), '🥾\n');
-    trailScore++;
-    return;
+    default:
+      stoneMarks[stoneIndex] = stoneMark * 2024;
+      break;
   }
-
-  trail([...path, [x - 1, y]], expectedLevel + 1);
-  trail([...path, [x + 1, y]], expectedLevel + 1);
-  trail([...path, [x, y - 1]], expectedLevel + 1);
-  trail([...path, [x, y + 1]], expectedLevel + 1);
 }
 
+function blink() {
+  for (let i = 0; i < stoneMarks.length; i++) {
+    changeStone(i);
+  }
 
-console.log(trailScore); // 1045
+  stoneMarks = stoneMarks.flat();
+}
+
+for (let i = 0; i < 25; i++) {
+  blink();
+}
+
+console.log(stoneMarks.length); // 193899
