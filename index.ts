@@ -61,4 +61,4 @@ function sumValidEquations(operators: Operator[]): number {
   return totalSum;
 }
 
-console.log(sumValidEquations(['+', '*'])); // 2664460013123
+console.log(sumValidEquations(['+', '*', '|'])); // 426214131924213
