@@ -1,42 +1,87 @@
-const file = Bun.file("puzzle-input.txt");
-const puzzleInput = await file.text();
+import type { BunFile } from "bun";
 
-let stoneMarks: (number | number[])[] = puzzleInput.split(' ').map(Number);
+class StoneStorage {
+  protected readonly storage: Map<number, number> = new Map();
 
-function changeStone(stoneIndex: number) {
-  const stoneMark = stoneMarks[stoneIndex] as number;
+  add(stone: number, count: number): void {
+    const storedStones = this.storage.get(stone);
+    if (storedStones) {
+      this.storage.set(stone, storedStones + count);
+    } else {
+      this.storage.set(stone, count);
+    }
+  }
 
-  switch (true) {
-    case stoneMark === 0:
-      stoneMarks[stoneIndex] = 1;
-      break;
 
-    case stoneMark.toString().length % 2 === 0:
-      let [firstHalf, secondHalf] = [stoneMark.toString().substring(0, stoneMark.toString().length / 2), stoneMark.toString().substring(stoneMark.toString().length / 2)];
+  stones(): Iterable<[number, number]> {
+    return this.storage.entries();
+  }
 
-      while (secondHalf[0] === '0') {
-        secondHalf = secondHalf.substring(1);
-      }
+  size(): number {
+    let size = 0;
+    
+    for (const count of this.storage.values()) {
+      size += count;
+    }
 
-      stoneMarks[stoneIndex] = [Number(firstHalf), Number(secondHalf)];
-      break;
+    return size;
+  }
+}
+
+class MutableStoneStorage extends StoneStorage {
+  static async fromFile(file: BunFile): Promise<MutableStoneStorage> {
+    const stoneStorage = new MutableStoneStorage();
+    const stones = (await file.text()).split(' ').map(Number);
+    
+    for (const stone of stones) {
+      stoneStorage.add(stone, 1);
+    }
+    
+    return stoneStorage;
+  }
+
+  mutate(): void {
+    const nextStoneStorage = new StoneStorage();
   
-    default:
-      stoneMarks[stoneIndex] = stoneMark * 2024;
-      break;
+    for (const [stone, count] of stoneStorage.stones()) {
+      const stoneString = stone.toString();
+  
+      switch (true) {
+        case stone === 0:
+          nextStoneStorage.add(1, count);
+          break;
+  
+        case stoneString.length % 2 === 0:
+          const [firstHalf, secondHalf] = [
+            stoneString.substring(0, stoneString.length / 2),
+            stoneString.substring(stoneString.length / 2)
+          ];
+    
+          nextStoneStorage.add(Number(firstHalf), count);
+          nextStoneStorage.add(Number(secondHalf), count);
+          break;
+  
+        default:
+          nextStoneStorage.add(stone * 2024, count);
+          break;
+      }
+    }
+  
+    this.storage.clear();
+    for (const [stone, count] of nextStoneStorage.stones()) {
+      this.storage.set(Number(stone), count);
+    }
+  }
+
+  mutateMany(times: number): void {
+    for (const _ of Array(times).keys()) {
+      this.mutate();
+    }
   }
 }
 
-function blink() {
-  for (let i = 0; i < stoneMarks.length; i++) {
-    changeStone(i);
-  }
+const stoneStorage = await MutableStoneStorage.fromFile(Bun.file("./puzzle-input.txt"));
 
-  stoneMarks = stoneMarks.flat();
-}
+stoneStorage.mutateMany(75);
 
-for (let i = 0; i < 25; i++) {
-  blink();
-}
-
-console.log(stoneMarks.length); // 193899
+console.log(stoneStorage.size()); // 229682160383225
