@@ -1,87 +1,52 @@
-import type { BunFile } from "bun";
+const farm = (await (Bun.file("./puzzle-input.txt").text())).split('\n').map(r => r.split(''));
 
-class StoneStorage {
-  protected readonly storage: Map<number, number> = new Map();
+type Coordinates = `${number},${number}`;
 
-  add(stone: number, count: number): void {
-    const storedStones = this.storage.get(stone);
-    if (storedStones) {
-      this.storage.set(stone, storedStones + count);
-    } else {
-      this.storage.set(stone, count);
-    }
-  }
+function coordinate(x: number, y: number): Coordinates {
+  return `${x},${y}`;
+}
 
+function checkRegion(expectedPlot: string, x: number, y: number, regionIndex: number) {
+  const plot = farm[y]?.[x];
+  if (plot !== expectedPlot) return;
 
-  stones(): Iterable<[number, number]> {
-    return this.storage.entries();
-  }
+  const plotCoordinates = coordinate(x, y);
+  if (visitedPlots.has(plotCoordinates)) return;
 
-  size(): number {
-    let size = 0;
-    
-    for (const count of this.storage.values()) {
-      size += count;
-    }
+  if (!regions[regionIndex]) regions[regionIndex] = [];
+  regions[regionIndex].push(plotCoordinates);
+  visitedPlots.add(plotCoordinates);
 
-    return size;
+  checkRegion(plot, x - 1, y, regionIndex);
+  checkRegion(plot, x + 1, y, regionIndex);
+  checkRegion(plot, x, y - 1, regionIndex);
+  checkRegion(plot, x, y + 1, regionIndex);
+}
+
+const visitedPlots = new Set<Coordinates>();
+const regions: Coordinates[][] = [];
+
+for (let y = 0; y < farm.length; y++) {
+  for (let x = 0; x < farm[y].length; x++) {
+    checkRegion(farm[y][x], x, y, regions.length);
   }
 }
 
-class MutableStoneStorage extends StoneStorage {
-  static async fromFile(file: BunFile): Promise<MutableStoneStorage> {
-    const stoneStorage = new MutableStoneStorage();
-    const stones = (await file.text()).split(' ').map(Number);
-    
-    for (const stone of stones) {
-      stoneStorage.add(stone, 1);
-    }
-    
-    return stoneStorage;
-  }
+const totalPrice = regions.reduce((total, region) => {
+  const area = region.length;
+  const perimeter = region.reduce((perimeter, plot) => {
+    const [x, y] = plot.split(',').map(Number);
+    const neighbors = [
+      coordinate(x - 1, y),
+      coordinate(x + 1, y),
+      coordinate(x, y - 1),
+      coordinate(x, y + 1),
+    ];
 
-  mutate(): void {
-    const nextStoneStorage = new StoneStorage();
-  
-    for (const [stone, count] of stoneStorage.stones()) {
-      const stoneString = stone.toString();
-  
-      switch (true) {
-        case stone === 0:
-          nextStoneStorage.add(1, count);
-          break;
-  
-        case stoneString.length % 2 === 0:
-          const [firstHalf, secondHalf] = [
-            stoneString.substring(0, stoneString.length / 2),
-            stoneString.substring(stoneString.length / 2)
-          ];
-    
-          nextStoneStorage.add(Number(firstHalf), count);
-          nextStoneStorage.add(Number(secondHalf), count);
-          break;
-  
-        default:
-          nextStoneStorage.add(stone * 2024, count);
-          break;
-      }
-    }
-  
-    this.storage.clear();
-    for (const [stone, count] of nextStoneStorage.stones()) {
-      this.storage.set(Number(stone), count);
-    }
-  }
+    return perimeter + neighbors.filter(neighbor => !region.includes(neighbor)).length;
+  }, 0);
 
-  mutateMany(times: number): void {
-    for (const _ of Array(times).keys()) {
-      this.mutate();
-    }
-  }
-}
+  return total + (area * perimeter);
+}, 0);
 
-const stoneStorage = await MutableStoneStorage.fromFile(Bun.file("./puzzle-input.txt"));
-
-stoneStorage.mutateMany(75);
-
-console.log(stoneStorage.size()); // 229682160383225
+console.log(totalPrice); // 1486324
